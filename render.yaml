@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: hydrohome
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements-deploy.txt
+    startCommand: python scripts/seed_demo_data.py && python run_api.py --host 0.0.0.0 --db data/demo.db
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7

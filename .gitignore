@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+data/*.db
+exports/*
+!exports/.gitkeep
+!data/.gitkeep
+
+# web demo data and local databases
+data/demo.db
