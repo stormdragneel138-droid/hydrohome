@@ -8,6 +8,7 @@ import * as alerts from "./alerts.js";
 import * as reminders from "./reminders.js";
 import * as devices from "./devices.js";
 import * as settings from "./settings.js";
+import * as notify from "./notify.js";
 
 const BRAND = "wellhome";            // the name used in the Figma design; change it here
 const REFRESH_MS = 60_000;           // dashboard re-reads the API this often
@@ -18,7 +19,7 @@ const NAV = [
 const VIEWS = Object.fromEntries([...NAV.map(([k, , , m]) => [k, m]), ["settings", settings]]);
 
 const state = { user: null, households: [], hid: null, asOf: null, route: "overview" };
-let renderId = 0, lastUpdated = null, shellData = { counts: { open_attention: 0, unread: 0 }, recent: [], sources: [], online: true };
+let pushSynced = false, renderId = 0, lastUpdated = null, shellData = { counts: { open_attention: 0, unread: 0 }, recent: [], sources: [], online: true };
 const $ = (sel, el = document) => el.querySelector(sel);
 const app = document.getElementById("app");
 
@@ -187,6 +188,8 @@ async function refreshShell() {
   } catch (err) {
     if (err instanceof ApiError && err.status === 0) shellData.online = false;
   }
+  notify.notifyNew(state.hid, shellData.recent).catch(() => {});
+  if (!pushSynced) { pushSynced = true; notify.syncPush(); }
   const badge = $("[data-badge]"), n = shellData.counts.open_attention;
   badge.hidden = !n; badge.textContent = n;
   $("[data-dot]").hidden = !shellData.counts.unread;
@@ -202,7 +205,11 @@ function renderPanel() {
   const items = shellData.recent;
   $("[data-panel]").innerHTML = `<h3>Notifications <button class="link-btn" data-readall>Mark all read</button></h3>
     ${items.length ? items.map((a) => `<div class="note-row ${a.is_read ? "" : "unread"}"><div><div class="t">${esc(a.title)}</div><div class="m">${esc(a.message)}</div><div class="m">${clock(a.detected_at)}</div></div></div>`).join("") : `<div class="empty">You’re all caught up.</div>`}
+    ${notify.permission() === "granted" ? `<button class="btn small" data-test-push style="margin-top:8px">Send a test notification</button>` : ""}
+    ${notify.supported() && notify.permission() !== "granted" ? `<button class="btn small" data-enable-push style="margin-top:8px">${notify.permission() === "denied" ? "Notifications blocked in browser settings" : "Turn on push notifications"}</button>` : ""}
     <a class="link-btn" href="#/alerts" style="margin-top:6px">See all alerts →</a>`;
+  $("[data-enable-push]")?.addEventListener("click", async () => { const r = await notify.enable(); toast(r === "granted" ? "Notifications turned on" : "Notifications not allowed", r === "granted" ? "" : "warn"); renderPanel(); });
+  $("[data-test-push]")?.addEventListener("click", async () => { await notify.syncPush(); const r = await notify.sendTest(); toast(r.sent ? "Test sent: it should pop up in a moment" : "No device registered yet. Try again in a few seconds.", r.sent ? "" : "warn"); });
   $("[data-readall]").addEventListener("click", async () => { await api.post(`/api/households/${state.hid}/alerts/mark-read`); await refreshShell(); });
 }
 

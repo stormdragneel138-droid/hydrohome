@@ -327,3 +327,30 @@ class ScheduleRepository(BaseRepository):
     def delete(self, schedule_id):
         _, n = self._execute("DELETE FROM reminder_schedules WHERE id = ?", (schedule_id,))
         return n
+
+
+class PushRepository(BaseRepository):
+    """Browser push subscriptions (one row per browser/device) and the stored VAPID keys."""
+
+    def upsert(self, user_id, endpoint, p256dh, auth):
+        self._execute(
+            "INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, "
+            "p256dh = excluded.p256dh, auth = excluded.auth",
+            (user_id, endpoint, p256dh, auth))
+
+    def remove(self, endpoint):
+        self._execute("DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,))
+
+    def for_household(self, household_id):
+        return self._query(
+            "SELECT s.* FROM push_subscriptions s JOIN household_members m "
+            "ON m.user_id = s.user_id WHERE m.household_id = ?", (household_id,))
+
+    def get_secret(self, key):
+        rows = self._query("SELECT value FROM app_secrets WHERE key = ?", (key,))
+        return rows[0]["value"] if rows else None
+
+    def set_secret(self, key, value):
+        self._execute("INSERT INTO app_secrets (key, value) VALUES (?, ?) "
+                      "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (key, value))

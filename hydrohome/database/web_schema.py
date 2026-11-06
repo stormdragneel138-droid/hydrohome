@@ -99,6 +99,20 @@ CREATE TABLE IF NOT EXISTS reminder_schedules (
     created_at    TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    endpoint   TEXT NOT NULL UNIQUE,
+    p256dh     TEXT NOT NULL,
+    auth       TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS app_secrets (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_usage_hh_date   ON daily_usage (household_id, usage_date);
 CREATE INDEX IF NOT EXISTS idx_alerts_hh       ON alerts (household_id, status);
 CREATE INDEX IF NOT EXISTS idx_schedules_hh    ON reminder_schedules (household_id, enabled);

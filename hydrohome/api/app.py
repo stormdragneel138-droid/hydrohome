@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 
 from hydrohome.api.container import build_web_services
 from hydrohome.api.errors import install_error_handlers
-from hydrohome.api.routers import alerts, auth, dashboard, households, meter, schedules, usage
+from hydrohome.api.routers import alerts, auth, dashboard, households, meter, push, schedules, usage
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 REMINDER_CHECK_SECONDS = 30
@@ -30,6 +30,7 @@ TAGS = [
     {"name": "Alerts", "description": "High-usage alerts and notifications."},
     {"name": "Reminders", "description": "Scheduled water-saving reminders."},
     {"name": "Dashboard", "description": "Dashboard statistics and CSV export."},
+    {"name": "Push", "description": "Browser push notifications for alerts and reminders."},
     {"name": "Meter readings", "description": "Cumulative meter readings from the desktop app."},
 ]
 
@@ -58,7 +59,7 @@ def create_app(db_path=None, start_scheduler=True):
                               "monitor limits, detect high consumption and schedule reminders.")
     app.state.services = services
     install_error_handlers(app)
-    for module in (dashboard, auth, households, usage, alerts, schedules, meter):
+    for module in (dashboard, auth, households, usage, alerts, schedules, meter, push):
         app.include_router(module.router)
 
     if WEB_DIR.is_dir():

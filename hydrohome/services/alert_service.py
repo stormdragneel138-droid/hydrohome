@@ -45,8 +45,16 @@ def _times(ratio):
 
 
 class AlertService:
-    def __init__(self, alerts, usage, sources, settings):
+    def __init__(self, alerts, usage, sources, settings, on_alert=None):
         self.alerts, self.usage, self.sources, self.settings = alerts, usage, sources, settings
+        self.on_alert = on_alert      # optional callback(alert_row): used for push notifications
+
+    def _announce(self, row):
+        if self.on_alert and row:
+            try:
+                self.on_alert(row)
+            except Exception as exc:          # a failing notification must never break detection
+                print("Alert notification failed:", exc)
 
     # -- output ---------------------------------------------------------------
     @staticmethod
@@ -64,11 +72,17 @@ class AlertService:
         Returns the alert row, or None if the user already dismissed/acknowledged it."""
         existing = self.alerts.find_by_key(household_id, d["dedupe_key"])
         if existing is None:
-            return self.alerts.get(self.alerts.add(household_id, d))
+            row = self.alerts.get(self.alerts.add(household_id, d))
+            self._announce(row)
+            return row
         if existing["status"] in ("dismissed", "acknowledged"):
             return None
+        was_open = existing["status"] == "open"
         self.alerts.refresh(existing["id"], d)
-        return self.alerts.get(existing["id"])
+        row = self.alerts.get(existing["id"])
+        if not was_open:                       # re-opened: tell the user again
+            self._announce(row)
+        return row
 
     def evaluate(self, household_id, day=None):
         """Scan one day of usage, raise alerts for anything unusual, resolve ones that no

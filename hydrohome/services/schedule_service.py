@@ -69,8 +69,9 @@ def in_quiet_hours(now_time, start, end):
 
 
 class ScheduleService:
-    def __init__(self, schedules, alerts, settings):
+    def __init__(self, schedules, alerts, settings, on_fire=None):
         self.schedules, self.alerts, self.settings = schedules, alerts, settings
+        self.on_fire = on_fire        # optional callback(alert_row, schedule_row): push notification
 
     # -- validation / output ----------------------------------------------------
     def _clean(self, form):
@@ -200,5 +201,11 @@ class ScheduleService:
                 "message": row["notes"] or f"Reminder: {row['title']}",
                 "usage_date": today, "dedupe_key": f"reminder:{row['id']}:{today}"})
             self.schedules.mark_fired(row["id"], today)
-            fired.append(self.alerts.get(alert_id))
+            alert = self.alerts.get(alert_id)
+            fired.append(alert)
+            if self.on_fire and "push" in str(row["channel"]).lower():
+                try:
+                    self.on_fire(alert, row)
+                except Exception as exc:      # never let a notification failure stop reminders
+                    print("Reminder notification failed:", exc)
         return fired
